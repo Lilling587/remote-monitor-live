@@ -28,6 +28,7 @@ export const Route = createFileRoute("/host")({
 const script = `# stageye_host.py - run on the FOH computer
 # pip install mss pillow supabase pynput
 import io, time, asyncio
+from datetime import datetime, timezone
 from mss import mss
 from PIL import Image
 from supabase import create_client
