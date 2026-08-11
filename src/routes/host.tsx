@@ -147,8 +147,6 @@ function HostPage() {
             <li>Install Python 3.10 or newer on the FOH computer.</li>
             <li>Install the dependencies with the command above.</li>
             <li>Paste the script below, filling in the project URL and anon key above.</li>
-
-            <li>Paste the script below, filling in the project URL and anon key above.</li>
             <li>
               Run it: <code className="text-accent">python stageye_host.py</code>
             </li>
