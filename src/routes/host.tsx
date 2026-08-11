@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useFrameStream } from "@/hooks/useFrameStream";
+import { useHostStatus } from "@/hooks/useHostStatus";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib/stageye";
 
 export const Route = createFileRoute("/host")({
@@ -27,6 +28,7 @@ export const Route = createFileRoute("/host")({
 const script = `# stageye_host.py - run on the FOH computer
 # pip install mss pillow supabase pynput
 import io, time, asyncio
+from datetime import datetime, timezone
 from mss import mss
 from PIL import Image
 from supabase import create_client
@@ -61,23 +63,38 @@ async def main():
     with mss() as sct:
         mon = sct.monitors[1]
         globals()["mouse_screen"] = (mon["width"], mon["height"])
-        while True:
-            shot = sct.grab(mon)
-            img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
-            buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=55)
-            sb.storage.from_("screen-frames").upload(
-                "latest.jpg", buf.getvalue(),
-                {"content-type": "image/jpeg", "upsert": "true", "cache-control": "0"},
-            )
-            await frames.send_broadcast("frame", {"timestamp": int(time.time() * 1000)})
-            await asyncio.sleep(1)
+        last_beat = 0.0
+        try:
+            while True:
+                shot = sct.grab(mon)
+                img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=55)
+                sb.storage.from_("screen-frames").upload(
+                    "latest.jpg", buf.getvalue(),
+                    {"content-type": "image/jpeg", "upsert": "true", "cache-control": "0"},
+                )
+                await frames.send_broadcast("frame", {"timestamp": int(time.time() * 1000)})
+
+                # Heartbeat every 5 seconds so viewers see "Host connected"
+                if time.time() - last_beat >= 5:
+                    last_beat = time.time()
+                    sb.table("host_status").update({
+                        "is_connected": True,
+                        "last_seen_at": datetime.now(timezone.utc).isoformat(),
+                    }).eq("id", 1).execute()
+
+                await asyncio.sleep(1)
+        finally:
+            sb.table("host_status").update({"is_connected": False}).eq("id", 1).execute()
 
 asyncio.run(main())`;
 
 
+
 function HostPage() {
-  const { connected, lastUpdate, fps } = useFrameStream();
+  const { lastUpdate, fps } = useFrameStream();
+  const { connected } = useHostStatus();
   const [revealed, setRevealed] = useState(false);
 
   return (
