@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-
 import { useFrameStream } from "@/hooks/useFrameStream";
 import { useHostStatus } from "@/hooks/useHostStatus";
-import { SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib/stageye";
+import { CopyBlock } from "@/components/CopyBlock";
+import { PIP_INSTALL, SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib/stageye";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -26,7 +25,7 @@ export const Route = createFileRoute("/host")({
 });
 
 const script = `# stageye_host.py - run on the FOH computer
-# pip install mss pillow supabase pynput
+# pip install mss pillow supabase pyautogui
 import io, time, asyncio
 from datetime import datetime, timezone
 from mss import mss
@@ -95,7 +94,6 @@ asyncio.run(main())`;
 function HostPage() {
   const { lastUpdate, fps } = useFrameStream();
   const { connected } = useHostStatus();
-  const [revealed, setRevealed] = useState(false);
 
   return (
     <main className="min-h-screen bg-background px-6 py-10">
