@@ -63,7 +63,7 @@ async def main():
 
     with mss() as sct:
         mon = sct.monitors[1]
-        globals()["mouse_screen"] = (mon["width"], mon["height"])
+        globals()["screen_size"] = (mon["width"], mon["height"])
         last_beat = 0.0
         try:
             while True:
