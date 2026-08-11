@@ -6,6 +6,9 @@ export const CONTROL_CHANNEL = "control-events";
 /** Milliseconds without a frame notification before the host is considered offline. */
 export const HOST_TIMEOUT_MS = 5000;
 
+/** Milliseconds since host_status.last_seen_at before the host counts as offline. */
+export const HOST_STALE_MS = 10000;
+
 export const SUPABASE_URL =
   (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ?? "";
 export const SUPABASE_ANON_KEY =
