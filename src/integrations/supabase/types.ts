@@ -14,7 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      host_status: {
+        Row: {
+          created_at: string
+          id: number
+          is_connected: boolean
+          last_seen_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          is_connected?: boolean
+          last_seen_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          is_connected?: boolean
+          last_seen_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
