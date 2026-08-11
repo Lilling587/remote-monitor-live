@@ -24,35 +24,57 @@ export const Route = createFileRoute("/host")({
   component: HostPage,
 });
 
-const script = `# stageye_host.py — run on the FOH computer
+const script = `# stageye_host.py - run on the FOH computer
 # pip install mss pillow supabase pynput
-import io, time
+import io, time, asyncio
 from mss import mss
 from PIL import Image
 from supabase import create_client
 from pynput.mouse import Button, Controller as Mouse
 from pynput.keyboard import Controller as Keyboard
 
-SUPABASE_URL = "<your project url>"
-SUPABASE_KEY = "<your anon key>"
+SUPABASE_URL = "<project url above>"
+SUPABASE_KEY = "<anon key above>"
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 mouse, keyboard = Mouse(), Keyboard()
+BUTTONS = {0: Button.left, 1: Button.middle, 2: Button.right}
 
-with mss() as sct:
-    mon = sct.monitors[1]
-    while True:
-        shot = sct.grab(mon)
-        img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=55)
-        sb.storage.from_("screen-frames").upload(
-            "latest.jpg", buf.getvalue(),
-            {"content-type": "image/jpeg", "upsert": "true", "cache-control": "0"},
-        )
-        ts = int(time.time() * 1000)
-        sb.realtime  # broadcast on channel "frame-updates", event "frame"
-        # -> {"timestamp": ts}
-        time.sleep(1)`;
+async def main():
+    frames = sb.realtime.channel("frame-updates")
+    await frames.subscribe()
+
+    control = sb.realtime.channel("control-events")
+
+    def on_control(payload):
+        e = payload.get("payload", payload)
+        w, h = mouse_screen
+        if e["type"] in ("mousemove", "mouseclick"):
+            mouse.position = (int(e["x"] * w), int(e["y"] * h))
+        if e["type"] == "mouseclick":
+            mouse.click(BUTTONS.get(e.get("button", 0), Button.left))
+        elif e["type"] == "keydown":
+            keyboard.type(e["key"]) if len(e["key"]) == 1 else None
+
+    control.on_broadcast("control", on_control)
+    await control.subscribe()
+
+    with mss() as sct:
+        mon = sct.monitors[1]
+        globals()["mouse_screen"] = (mon["width"], mon["height"])
+        while True:
+            shot = sct.grab(mon)
+            img = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=55)
+            sb.storage.from_("screen-frames").upload(
+                "latest.jpg", buf.getvalue(),
+                {"content-type": "image/jpeg", "upsert": "true", "cache-control": "0"},
+            )
+            await frames.send_broadcast("frame", {"timestamp": int(time.time() * 1000)})
+            await asyncio.sleep(1)
+
+asyncio.run(main())`;
+
 
 function HostPage() {
   const { connected, lastUpdate, fps } = useFrameStream();
