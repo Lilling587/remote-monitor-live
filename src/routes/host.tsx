@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { useFrameStream } from "@/hooks/useFrameStream";
+import { useHostStatus } from "@/hooks/useHostStatus";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib/stageye";
 
 export const Route = createFileRoute("/host")({
@@ -77,7 +78,8 @@ asyncio.run(main())`;
 
 
 function HostPage() {
-  const { connected, lastUpdate, fps } = useFrameStream();
+  const { lastUpdate, fps } = useFrameStream();
+  const { connected } = useHostStatus();
   const [revealed, setRevealed] = useState(false);
 
   return (

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useFrameStream } from "@/hooks/useFrameStream";
+import { useHostStatus } from "@/hooks/useHostStatus";
 import { CONTROL_CHANNEL, formatClock, type ControlEvent } from "@/lib/stageye";
 
 export const Route = createFileRoute("/")({
@@ -26,7 +27,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Viewer() {
-  const { connected, src, lastUpdate, fps } = useFrameStream();
+  const { src, lastUpdate, fps } = useFrameStream();
+  const { connected } = useHostStatus();
   const [control, setControl] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
   const hideTimer = useRef<number | null>(null);
