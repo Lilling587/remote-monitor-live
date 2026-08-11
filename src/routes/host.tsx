@@ -31,14 +31,14 @@ from datetime import datetime, timezone
 from mss import mss
 from PIL import Image
 from supabase import create_client
-from pynput.mouse import Button, Controller as Mouse
-from pynput.keyboard import Controller as Keyboard
+import pyautogui
+
+pyautogui.FAILSAFE = False
 
 SUPABASE_URL = "<project url above>"
 SUPABASE_KEY = "<anon key above>"
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
-mouse, keyboard = Mouse(), Keyboard()
-BUTTONS = {0: Button.left, 1: Button.middle, 2: Button.right}
+BUTTONS = {0: "left", 1: "middle", 2: "right"}
 
 async def main():
     frames = sb.realtime.channel("frame-updates")
@@ -48,13 +48,15 @@ async def main():
 
     def on_control(payload):
         e = payload.get("payload", payload)
-        w, h = mouse_screen
+        w, h = screen_size
         if e["type"] in ("mousemove", "mouseclick"):
-            mouse.position = (int(e["x"] * w), int(e["y"] * h))
+            pyautogui.moveTo(int(e["x"] * w), int(e["y"] * h))
         if e["type"] == "mouseclick":
-            mouse.click(BUTTONS.get(e.get("button", 0), Button.left))
+            pyautogui.click(button=BUTTONS.get(e.get("button", 0), "left"))
         elif e["type"] == "keydown":
-            keyboard.type(e["key"]) if len(e["key"]) == 1 else None
+            key = e["key"]
+            pyautogui.press({"Enter": "enter", "Escape": "esc", " ": "space"}.get(key, key.lower()))
+
 
     control.on_broadcast("control", on_control)
     await control.subscribe()
