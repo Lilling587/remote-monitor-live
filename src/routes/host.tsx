@@ -157,7 +157,15 @@ function HostPage() {
               <code className="text-accent">frame-updates</code>, and applies incoming events from{" "}
               <code className="text-accent">control-events</code>.
             </li>
+            <li>
+              Autostart on Windows: press <code className="text-accent">Win + R</code>, run{" "}
+              <code className="text-accent">shell:startup</code>, and drop a shortcut to{" "}
+              <code className="text-accent">stageye_host.py</code> (or a{" "}
+              <code className="text-accent">.bat</code> that calls it) in that folder so the host
+              script starts automatically on boot.
+            </li>
           </ol>
+
           <pre className="overflow-x-auto rounded-md border border-border bg-panel p-4 text-[11px] leading-relaxed text-foreground">
             <code>{script}</code>
           </pre>
