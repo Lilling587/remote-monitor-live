@@ -22,8 +22,8 @@ from pathlib import Path
 
 # ─── FILL IN THESE TWO VALUES ────────────────────────────────────────────────
 #  Find them at:  https://your-app.lovable.app/host
-SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"
-SUPABASE_KEY = "YOUR_ANON_KEY_HERE"
+SUPABASE_URL = "https://fxomeytrkhrzkpjkpfjt.supabase.co"
+SUPABASE_KEY = "sb_publishable_q6INNOwUoe6f4kOMSPJ4XQ_miL4APfh"
 # ─────────────────────────────────────────────────────────────────────────────
 
 CAPTURE_INTERVAL = 1.0   # seconds between frames  (1.0 = 1 frame per second)
