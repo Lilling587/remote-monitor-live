@@ -22,13 +22,10 @@ export function frameUrl(timestamp: number): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${FRAME_BUCKET}/${FRAME_OBJECT}?t=${timestamp}`;
 }
 
-export type ControlEvent = {
-  type: "mousemove" | "mouseclick" | "keydown";
-  x: number;
-  y: number;
-  button: 0 | 1 | 2;
-  key: string;
-};
+export type ControlEvent =
+  | { type: "mousemove"; x: number; y: number }
+  | { type: "mouseclick"; x: number; y: number; button: 0 | 1 | 2 }
+  | { type: "keydown"; key: string };
 
 export function formatClock(ms: number | null): string {
   if (!ms) return "--:--:--";
