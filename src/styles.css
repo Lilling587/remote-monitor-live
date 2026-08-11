@@ -73,3 +73,16 @@
     color: var(--color-foreground);
   }
 }
+
+@layer base {
+  body {
+    font-family: var(--font-mono);
+    letter-spacing: 0.01em;
+  }
+}
+
+@utility overlay-panel {
+  background-color: color-mix(in oklab, var(--panel) 82%, transparent);
+  backdrop-filter: blur(6px);
+  border-color: var(--border);
+}
