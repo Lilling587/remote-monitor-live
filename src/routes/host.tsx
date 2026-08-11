@@ -134,21 +134,10 @@ function HostPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm tracking-widest uppercase">Connection details</h2>
-          <div className="space-y-2 rounded-md border border-border bg-panel p-4 text-xs">
-            <p className="text-muted-foreground">Project URL</p>
-            <code className="block break-all text-accent">{SUPABASE_URL}</code>
-            <p className="pt-2 text-muted-foreground">Anon key (safe to use in the script)</p>
-            {revealed ? (
-              <code className="block break-all text-accent">{SUPABASE_ANON_KEY}</code>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setRevealed(true)}
-                className="rounded border border-border px-3 py-1 tracking-widest uppercase hover:text-foreground"
-              >
-                Reveal key
-              </button>
-            )}
+          <div className="space-y-4 rounded-md border border-border bg-panel p-4">
+            <CopyBlock label="Project URL" value={SUPABASE_URL} />
+            <CopyBlock label="Anon key" value={SUPABASE_ANON_KEY} masked />
+            <CopyBlock label="Install dependencies" value={PIP_INSTALL} />
           </div>
         </section>
 
@@ -156,9 +145,9 @@ function HostPage() {
           <h2 className="text-sm tracking-widest uppercase">Running the host script</h2>
           <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
             <li>Install Python 3.10 or newer on the FOH computer.</li>
-            <li>
-              Install dependencies: <code className="text-accent">pip install mss pillow supabase pynput</code>
-            </li>
+            <li>Install the dependencies with the command above.</li>
+            <li>Paste the script below, filling in the project URL and anon key above.</li>
+
             <li>Paste the script below, filling in the project URL and anon key above.</li>
             <li>
               Run it: <code className="text-accent">python stageye_host.py</code>
