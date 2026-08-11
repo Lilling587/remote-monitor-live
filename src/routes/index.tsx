@@ -27,8 +27,9 @@ export const Route = createFileRoute("/")({
 });
 
 function Viewer() {
-  const { src, lastUpdate, fps } = useFrameStream();
-  const { connected } = useHostStatus();
+  const { connected: framesLive, src, lastUpdate, fps } = useFrameStream();
+  const { connected: hostReported } = useHostStatus();
+  const connected = framesLive || hostReported;
   const [control, setControl] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
   const hideTimer = useRef<number | null>(null);
@@ -75,7 +76,7 @@ function Viewer() {
   useEffect(() => {
     if (!control) return;
     const onKey = (e: KeyboardEvent) => {
-      send({ type: "keydown", x: 0, y: 0, button: 0, key: e.key });
+      send({ type: "keydown", key: e.key });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -94,13 +95,14 @@ function Viewer() {
             alt="Live capture of the front-of-house computer screen"
             className={`max-h-full max-w-full object-contain ${control ? "cursor-crosshair" : ""}`}
             draggable={false}
+            tabIndex={control ? 0 : -1}
             onMouseMove={(e) => {
               if (!control) return;
               const now = Date.now();
-              if (now - lastMove.current < 60) return;
+              if (now - lastMove.current < 100) return;
               lastMove.current = now;
               const { x, y } = normalize(e);
-              send({ type: "mousemove", x, y, button: 0, key: "" });
+              send({ type: "mousemove", x, y });
             }}
             onMouseDown={(e) => {
               if (!control) return;
@@ -111,7 +113,6 @@ function Viewer() {
                 x,
                 y,
                 button: (e.button === 1 ? 1 : e.button === 2 ? 2 : 0) as 0 | 1 | 2,
-                key: "",
               });
             }}
             onContextMenu={(e) => control && e.preventDefault()}
@@ -132,12 +133,15 @@ function Viewer() {
       >
         <div className="flex items-baseline gap-3">
           <span className="text-sm font-semibold tracking-[0.2em] text-foreground">STAGEYE</span>
-          <Link to="/host" className="text-[11px] text-muted-foreground hover:text-accent">
+          <Link
+            to="/host"
+            className="text-[11px] tracking-widest text-muted-foreground uppercase hover:text-accent"
+          >
             Host setup
           </Link>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>{connected ? "Host connected" : "Disconnected"}</span>
+          <span>{connected ? "HOST CONNECTED" : "WAITING FOR HOST..."}</span>
           <span
             aria-hidden
             className={`size-2.5 rounded-full ${connected ? "bg-accent" : "bg-destructive"}`}

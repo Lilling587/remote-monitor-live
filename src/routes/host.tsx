@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-
 import { useFrameStream } from "@/hooks/useFrameStream";
 import { useHostStatus } from "@/hooks/useHostStatus";
-import { SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib/stageye";
+import { CopyBlock } from "@/components/CopyBlock";
+import { PIP_INSTALL, SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib/stageye";
 
 export const Route = createFileRoute("/host")({
   head: () => ({
@@ -26,20 +25,20 @@ export const Route = createFileRoute("/host")({
 });
 
 const script = `# stageye_host.py - run on the FOH computer
-# pip install mss pillow supabase pynput
+# pip install mss pillow supabase pyautogui
 import io, time, asyncio
 from datetime import datetime, timezone
 from mss import mss
 from PIL import Image
 from supabase import create_client
-from pynput.mouse import Button, Controller as Mouse
-from pynput.keyboard import Controller as Keyboard
+import pyautogui
+
+pyautogui.FAILSAFE = False
 
 SUPABASE_URL = "<project url above>"
 SUPABASE_KEY = "<anon key above>"
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
-mouse, keyboard = Mouse(), Keyboard()
-BUTTONS = {0: Button.left, 1: Button.middle, 2: Button.right}
+BUTTONS = {0: "left", 1: "middle", 2: "right"}
 
 async def main():
     frames = sb.realtime.channel("frame-updates")
@@ -49,20 +48,22 @@ async def main():
 
     def on_control(payload):
         e = payload.get("payload", payload)
-        w, h = mouse_screen
+        w, h = screen_size
         if e["type"] in ("mousemove", "mouseclick"):
-            mouse.position = (int(e["x"] * w), int(e["y"] * h))
+            pyautogui.moveTo(int(e["x"] * w), int(e["y"] * h))
         if e["type"] == "mouseclick":
-            mouse.click(BUTTONS.get(e.get("button", 0), Button.left))
+            pyautogui.click(button=BUTTONS.get(e.get("button", 0), "left"))
         elif e["type"] == "keydown":
-            keyboard.type(e["key"]) if len(e["key"]) == 1 else None
+            key = e["key"]
+            pyautogui.press({"Enter": "enter", "Escape": "esc", " ": "space"}.get(key, key.lower()))
+
 
     control.on_broadcast("control", on_control)
     await control.subscribe()
 
     with mss() as sct:
         mon = sct.monitors[1]
-        globals()["mouse_screen"] = (mon["width"], mon["height"])
+        globals()["screen_size"] = (mon["width"], mon["height"])
         last_beat = 0.0
         try:
             while True:
@@ -95,7 +96,6 @@ asyncio.run(main())`;
 function HostPage() {
   const { lastUpdate, fps } = useFrameStream();
   const { connected } = useHostStatus();
-  const [revealed, setRevealed] = useState(false);
 
   return (
     <main className="min-h-screen bg-background px-6 py-10">
@@ -134,21 +134,10 @@ function HostPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm tracking-widest uppercase">Connection details</h2>
-          <div className="space-y-2 rounded-md border border-border bg-panel p-4 text-xs">
-            <p className="text-muted-foreground">Project URL</p>
-            <code className="block break-all text-accent">{SUPABASE_URL}</code>
-            <p className="pt-2 text-muted-foreground">Anon key (safe to use in the script)</p>
-            {revealed ? (
-              <code className="block break-all text-accent">{SUPABASE_ANON_KEY}</code>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setRevealed(true)}
-                className="rounded border border-border px-3 py-1 tracking-widest uppercase hover:text-foreground"
-              >
-                Reveal key
-              </button>
-            )}
+          <div className="space-y-4 rounded-md border border-border bg-panel p-4">
+            <CopyBlock label="Project URL" value={SUPABASE_URL} />
+            <CopyBlock label="Anon key" value={SUPABASE_ANON_KEY} masked />
+            <CopyBlock label="Install dependencies" value={PIP_INSTALL} />
           </div>
         </section>
 
@@ -156,9 +145,7 @@ function HostPage() {
           <h2 className="text-sm tracking-widest uppercase">Running the host script</h2>
           <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
             <li>Install Python 3.10 or newer on the FOH computer.</li>
-            <li>
-              Install dependencies: <code className="text-accent">pip install mss pillow supabase pynput</code>
-            </li>
+            <li>Install the dependencies with the command above.</li>
             <li>Paste the script below, filling in the project URL and anon key above.</li>
             <li>
               Run it: <code className="text-accent">python stageye_host.py</code>

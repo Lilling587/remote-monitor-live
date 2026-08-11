@@ -12,19 +12,20 @@ export const HOST_STALE_MS = 10000;
 export const SUPABASE_URL =
   (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ?? "";
 export const SUPABASE_ANON_KEY =
-  (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined) ?? "";
+  (import.meta.env["VITE_SUPABASE_ANON_KEY"] as string | undefined) ??
+  (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined) ??
+  "";
+
+export const PIP_INSTALL = "pip install mss pillow supabase pyautogui";
 
 export function frameUrl(timestamp: number): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${FRAME_BUCKET}/${FRAME_OBJECT}?t=${timestamp}`;
 }
 
-export type ControlEvent = {
-  type: "mousemove" | "mouseclick" | "keydown";
-  x: number;
-  y: number;
-  button: 0 | 1 | 2;
-  key: string;
-};
+export type ControlEvent =
+  | { type: "mousemove"; x: number; y: number }
+  | { type: "mouseclick"; x: number; y: number; button: 0 | 1 | 2 }
+  | { type: "keydown"; key: string };
 
 export function formatClock(ms: number | null): string {
   if (!ms) return "--:--:--";
