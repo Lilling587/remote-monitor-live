@@ -44,16 +44,22 @@ export function useFrameStream(room: string): FrameStream {
   useEffect(() => {
     const interval = window.setInterval(() => {
       setLastUpdate((current) => {
-        if (current !== null && Date.now() - current > HOST_TIMEOUT_MS) {
+        const now = Date.now();
+        if (current !== null && now - current > HOST_TIMEOUT_MS) {
           setConnected(false);
           setFps(0);
+        }
+        // Polling fallback: if no Realtime notification for 3s, fetch directly
+        if (current === null || now - current > 3000) {
+          const ts = Date.now();
+          setSrc(roomFrameUrl(room, ts));
         }
         return current;
       });
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [room]);
 
   return { connected, src, lastUpdate, fps };
 }
