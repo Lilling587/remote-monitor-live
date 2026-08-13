@@ -103,11 +103,11 @@ function HostPage() {
         <header className="flex items-center justify-between border-b border-border pb-4">
           <div>
             <h1 className="text-lg font-semibold tracking-[0.2em]">STAGEYE / HOST</h1>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-zinc-400">
               Capture setup for the front-of-house computer
             </p>
           </div>
-          <Link to="/" className="text-xs text-muted-foreground hover:text-accent">
+          <Link to="/" className="text-xs text-zinc-400 hover:text-accent">
             Open viewer
           </Link>
         </header>
@@ -120,8 +120,8 @@ function HostPage() {
             />
             <h2 className="text-sm">{connected ? "Host connected" : "Host disconnected"}</h2>
           </div>
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-            <div>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-xs text-zinc-400">
+             <div>
               <dt>Frame rate</dt>
               <dd className="text-foreground">~{fps.toFixed(fps >= 10 ? 0 : 1)} fps</dd>
             </div>
@@ -143,7 +143,7 @@ function HostPage() {
 
         <section className="space-y-3">
           <h2 className="text-sm tracking-widest uppercase">Running the host script</h2>
-          <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+          <ol className="list-decimal space-y-1 pl-5 text-xs text-zinc-300">
             <li>Install Python 3.10 or newer on the FOH computer.</li>
             <li>Install the dependencies with the command above.</li>
             <li>Paste the script below, filling in the project URL and anon key above.</li>
