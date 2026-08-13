@@ -9,17 +9,17 @@ import { CONTROL_CHANNEL, formatClock, type ControlEvent } from "@/lib/stageye";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "StagEye — remote FOH screen monitor" },
+      { title: "Stageye - remote screen monitor" },
       {
         name: "description",
         content:
-          "Live remote view of a front-of-house computer screen for sound engineers, with optional mouse and keyboard control.",
+          "Live remote view of a computer screen, with optional mouse and keyboard control",
       },
-      { property: "og:title", content: "StagEye — remote FOH screen monitor" },
+      { property: "og:title", content: "Stageye - remote screen monitor" },
       {
         property: "og:description",
         content:
-          "Live remote view of a front-of-house computer screen for sound engineers, with optional mouse and keyboard control.",
+          "Live remote view of a computer screen, with optional mouse and keyboard control",
       },
     ],
   }),
