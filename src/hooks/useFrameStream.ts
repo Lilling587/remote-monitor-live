@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { FRAME_CHANNEL, HOST_TIMEOUT_MS, frameUrl } from "@/lib/stageye";
+import { HOST_TIMEOUT_MS, roomFrameChannel, roomFrameUrl } from "@/lib/stageye";
 
 export type FrameStream = {
   connected: boolean;
@@ -10,7 +10,7 @@ export type FrameStream = {
   fps: number;
 };
 
-export function useFrameStream(): FrameStream {
+export function useFrameStream(room: string): FrameStream {
   const [src, setSrc] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [fps, setFps] = useState(0);
@@ -19,13 +19,13 @@ export function useFrameStream(): FrameStream {
 
   useEffect(() => {
     const channel = supabase
-      .channel(FRAME_CHANNEL)
+      .channel(roomFrameChannel(room))
       .on("broadcast", { event: "frame" }, (payload) => {
         const raw = (payload as { payload?: { timestamp?: number } }).payload?.timestamp;
         const timestamp = typeof raw === "number" ? raw : Date.now();
         const now = Date.now();
 
-        setSrc(frameUrl(timestamp));
+        setSrc(roomFrameUrl(room, timestamp));
         setLastUpdate(now);
         setConnected(true);
 
@@ -39,7 +39,7 @@ export function useFrameStream(): FrameStream {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [room]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
