@@ -7,13 +7,13 @@ import { PIP_INSTALL, SUPABASE_ANON_KEY, SUPABASE_URL, formatClock } from "@/lib
 export const Route = createFileRoute("/host")({
   head: () => ({
     meta: [
-      { title: "Host setup — StagEye" },
+      { title: "Host setup — Stageye" },
       {
         name: "description",
         content:
           "Configure the StagEye host capture script on your front-of-house computer and check its connection status.",
       },
-      { property: "og:title", content: "Host setup — StagEye" },
+      { property: "og:title", content: "Host setup — Stageye" },
       {
         property: "og:description",
         content:
