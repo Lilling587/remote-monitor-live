@@ -1,74 +1,61 @@
-# Stage Monitor Live
+# StagEye — Remote Screen Monitor
 
-Build a screen sharing relay app called "StagEye" for live sound engineers to remotely monitor a FOH computer screen.
+Live remote view of the FOH computer screen over the internet.
+Built for Vara Konserthus.
 
-## Architecture
-- The app is a relay between a Python script running on a host computer and any number of browser viewers
-- The Python script sends JPEG screen captures to Supabase Storage
-- The app displays the latest frame in real time using Supabase Realtime notifications
-- Viewers can optionally send mouse and keyboard control events back to the host
+---
 
-## Pages / Routes
-1. `/` - Viewer page (the main page everyone opens)
-2. `/host` - Host info page (shows setup instructions and connection status)
+## Viewer URLs
 
-## Viewer page (`/`)
-- Dark background (#0a0a0a)
-- Full-viewport canvas/image that shows the latest screen capture
-- Top bar (slim, ~40px): app name "StagEye" on the left, connection status dot (green = host connected, red = disconnected) on the right
-- Status message below top bar when no host is connected: "Waiting for host connection..."
-- When a frame is received, display it scaled to fit the viewport (maintain aspect ratio)
-- Below the image: a slim toolbar with:
-  - A toggle: "View only" / "Control" (switching to control mode enables mouse and keyboard relay)
-  - Frame rate indicator (e.g. "~1 fps")
-  - Last updated timestamp
+| Stage | URL |
+|---|---|
+| Stora Salen | https://stageye.spdproduktion.se/?room=stora-salen |
+| Blackbox | https://stageye.spdproduktion.se/?room=blackbox |
+| Host setup | https://stageye.spdproduktion.se/host |
 
-## Control mode
-- When "Control" is toggled on, mouse clicks and moves on the image send events to a Supabase Realtime channel called `control-events`
-- Each event: `{ type: "mousemove"|"mouseclick"|"keydown", x: 0.0-1.0, y: 0.0-1.0, button: 0|1|2, key: "string" }`
-- Coordinates are normalized (0.0 to 1.0 relative to the original screen dimensions)
+Open any viewer URL in any browser — no install needed.
 
-## Supabase setup needed
-- Storage bucket: `screen-frames` (public)
-- Frame is stored as `latest.jpg` in the bucket, overwritten every update
-- Realtime channel: `frame-updates` — host broadcasts `{ timestamp: number }` when a new frame is ready
-- Realtime channel: `control-events` — viewers broadcast mouse/keyboard events to host
+---
 
-## Design
-- Aesthetic: dark broadcast monitor. Think hardware rack unit or professional video scaler — functional, no decoration
-- Color palette: #0a0a0a background, #1a1a1a panels, #00ff88 accent (green status/active), #ff4444 red for disconnected, #888 for secondary text
-- Monospace font (JetBrains Mono or similar) for all UI labels and status text
-- The screen capture fills the entire dark viewport — everything else is secondary
-- Top bar and bottom toolbar should be semi-transparent overlays that disappear when no interaction for 3 seconds (like a video player)
+## FOH Computer Setup
 
-## Host info page (`/host`)
-- Shows the Supabase project URL and anon key (from env) so the Python script can be configured
-- Shows a simple status: "Host connected / disconnected"
-- Shows instructions for running the Python script
+### Install once
+1. Download Python from [python.org/downloads](https://python.org/downloads) — tick **Add Python to PATH**
+2. Open a terminal and run:
+3. Copy `stageye_host.py` and `stageye_start.bat` to the FOH computer
 
-## Tech notes
-- Use Supabase JS client for Storage and Realtime
-- Poll for new frame by subscribing to `frame-updates` Realtime channel
-- When a new frame notification arrives, fetch the image from Storage with a cache-busting timestamp query param
-- The frame image URL: `{SUPABASE_URL}/storage/v1/object/public/screen-frames/latest.jpg?t={timestamp}`
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/1206b096-4490-421e-8952-b7b107367894).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+### Configure the script
+Open `stageye_host.py` and set the room at the top:
+```python
+ROOM = "stora-salen"   # or "blackbox"
 ```
+
+### Run it
+Double-click `stageye_start.bat` — no terminal window appears.
+
+### Autostart on boot
+1. Press `Win + R` → type `shell:startup` → press Enter
+2. Put a shortcut to `stageye_start.bat` in that folder
+3. The script now starts automatically every time Windows boots
+
+---
+
+## How it works
+---
+
+## Rooms
+
+Each stage has its own isolated stream. The room is set in the Python script
+and in the viewer URL. Adding a new stage: pick a slug (no spaces), add it to
+`ROOM_NAMES` in `src/lib/stageye.ts`, copy the script to the new FOH computer
+and set the ROOM variable.
+
+---
+
+## Project
+
+- App: [stageye.lovable.app](https://stageye.lovable.app)
+- Custom domain: [stageye.spdproduktion.se](https://stageye.spdproduktion.se)
+- Lovable project: [lovable.dev/projects/1206b096-4490-421e-8952-b7b107367894](https://lovable.dev/projects/1206b096-4490-421e-8952-b7b107367894)
+- Supabase project: `fxomeytrkhrzkpjkpfjt`
+- 
