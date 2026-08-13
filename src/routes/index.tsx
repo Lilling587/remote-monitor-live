@@ -132,7 +132,7 @@ function Viewer() {
         }`}
       >
         <div className="flex items-baseline gap-3">
-          <span className="text-sm font-semibold tracking-[0.2em] text-foreground">STAGEYE</span>
+          <h1 className="text-sm font-semibold tracking-[0.2em] text-foreground">STAGEYE</h1>
           <Link
             to="/host"
             className="text-[11px] tracking-widest text-muted-foreground uppercase hover:text-accent"
