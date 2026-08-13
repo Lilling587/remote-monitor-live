@@ -19,6 +19,7 @@ import threading
 import logging
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
 # ─── FILL IN THESE TWO VALUES ────────────────────────────────────────────────
 #  Find them at:  https://your-app.lovable.app/host
@@ -155,6 +156,24 @@ def realtime_thread():
             _frame_channel = None
             time.sleep(10)
 
+# ─── HOST STATUS ─────────────────────────────────────────────────────────────
+_last_heartbeat = 0.0
+
+def _update_host_status(connected: bool):
+    """Write connection status to the host_status table (read by /host page)."""
+    global _last_heartbeat
+    # Only write every 5 seconds to avoid hammering the database
+    if connected and time.time() - _last_heartbeat < 5:
+        return
+    try:
+        sb.table("host_status").update({
+            "is_connected": connected,
+            "last_seen_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", 1).execute()
+        _last_heartbeat = time.time()
+    except Exception as e:
+        log.warning(f"Host status update failed: {e}")
+
 # ─── MAIN LOOP ───────────────────────────────────────────────────────────────
 def main():
     if "YOUR_PROJECT" in SUPABASE_URL or "YOUR_ANON_KEY" in SUPABASE_KEY:
@@ -187,6 +206,9 @@ def main():
                 ts      = upload_frame(jpeg_bytes)
                 broadcast_new_frame(ts)
 
+                # Heartbeat — keeps the /host page status dot green
+                _update_host_status(True)
+
                 size_kb = len(jpeg_bytes) // 1024
                 elapsed = (time.time() - loop_start) * 1000
                 log.info(f"Frame sent — {size_kb} KB  ({elapsed:.0f} ms)")
@@ -202,4 +224,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        _update_host_status(False)
