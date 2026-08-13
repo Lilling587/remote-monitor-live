@@ -102,7 +102,7 @@ function HostPage() {
       <div className="mx-auto max-w-3xl space-y-8">
         <header className="flex items-center justify-between border-b border-border pb-4">
           <div>
-            <h1 className="text-lg font-semibold tracking-[0.2em]">STAGEYE / HOST</h1>
+            <h1 className="text-lg font-semibold tracking-[0.2em]">STAGEYE / HOST<span className="sr-only"> — Host Setup & Configuration</span></h1>
             <p className="mt-1 text-xs text-zinc-400">
               Capture setup for the front-of-house computer
             </p>
