@@ -77,8 +77,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "StagEye" },
-      { name: "description", content: "Remote screen monitoring for live sound engineers." },
+      { title: "Stageye - remote screen monitor" },
+      {
+        name: "description",
+        content:
+          "Live remote view of a computer screen, with optional mouse and keyboard control",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
