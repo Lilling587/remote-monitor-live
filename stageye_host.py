@@ -169,7 +169,7 @@ def _update_host_status(connected: bool):
         sb.table("host_status").update({
             "is_connected": connected,
             "last_seen_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", 1).execute()
+        }).eq("room", ROOM).execute()
         _last_heartbeat = time.time()
     except Exception as e:
         log.warning(f"Host status update failed: {e}")
