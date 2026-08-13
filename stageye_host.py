@@ -27,8 +27,8 @@ SUPABASE_URL = "https://fxomeytrkhrzkpjkpfjt.supabase.co"
 SUPABASE_KEY = "sb_publishable_q6INNOwUoe6f4kOMSPJ4XQ_miL4APfh"
 # ─────────────────────────────────────────────────────────────────────────────
 
-CAPTURE_INTERVAL = 1.0   # seconds between frames  (1.0 = 1 frame per second)
-JPEG_QUALITY     = 55    # 1–95. Lower = faster upload, worse image quality.
+CAPTURE_INTERVAL = 2.0   # seconds between frames  (1.0 = 1 frame per second)
+JPEG_QUALITY     = 40    # 1–95. Lower = faster upload, worse image quality.
                          # 55 is a good balance for SPL meter monitoring.
 
 # ─── IMPORTS ─────────────────────────────────────────────────────────────────
