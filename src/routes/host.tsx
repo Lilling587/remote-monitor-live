@@ -109,7 +109,7 @@ function HostPage() {
             <li>Install the dependencies with the command above.</li>
             <li>
               Download{" "}
-              
+              <a
                 href={SCRIPT_URL}
                 className="text-accent underline"
                 target="_blank"
