@@ -1,7 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-
-import { supabase } from "@/integrations/supabase/client";
-import { HOST_TIMEOUT_MS, roomFrameChannel, roomFrameUrl } from "@/lib/stageye";
+import { useEffect, useState } from "react";
+import { HOST_TIMEOUT_MS, roomFrameUrl } from "@/lib/stageye";
 
 export type FrameStream = {
   connected: boolean;
@@ -10,55 +8,77 @@ export type FrameStream = {
   fps: number;
 };
 
+/** Hur ofta vi frågar efter en ny bild. Matchar CLOUD_INTERVAL i stageye_host.py. */
+const POLL_INTERVAL_MS = 2000;
+
 export function useFrameStream(room: string): FrameStream {
   const [src, setSrc] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<number | null>(null);
   const [fps, setFps] = useState(0);
   const [connected, setConnected] = useState(false);
-  const stamps = useRef<number[]>([]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(roomFrameChannel(room))
-      .on("broadcast", { event: "frame" }, (payload) => {
-        const raw = (payload as { payload?: { timestamp?: number } }).payload?.timestamp;
-        const timestamp = typeof raw === "number" ? raw : Date.now();
-        const now = Date.now();
+    let cancelled = false;
+    let timer: number | undefined;
+    let objectUrl: string | null = null;
+    let lastModified = 0;
+    let stamps: number[] = [];
 
-        setSrc(roomFrameUrl(room, timestamp));
-        setLastUpdate(now);
-        setConnected(true);
+    async function tick() {
+      try {
+        const response = await fetch(roomFrameUrl(room, Date.now()), {
+          cache: "no-store",
+        });
+        if (!response.ok) throw new Error(String(response.status));
 
-        stamps.current = [...stamps.current, now].filter((t) => now - t < 5000);
-        const first = stamps.current[0];
-        const span = first === undefined ? 0 : now - first;
-        setFps(stamps.current.length > 1 && span > 0 ? ((stamps.current.length - 1) / span) * 1000 : 0);
-      })
-      .subscribe();
+        const header = response.headers.get("last-modified");
+        const modified = header ? Date.parse(header) : Date.now();
+        const blob = await response.blob();
+        if (cancelled) return;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [room]);
+        const fresh = Date.now() - modified < HOST_TIMEOUT_MS;
+        setConnected(fresh);
+        if (!fresh) setFps(0);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setLastUpdate((current) => {
-        const now = Date.now();
-        if (current !== null && now - current > HOST_TIMEOUT_MS) {
+        if (modified !== lastModified) {
+          lastModified = modified;
+
+          const next = URL.createObjectURL(blob);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          objectUrl = next;
+
+          setSrc(next);
+          setLastUpdate(modified);
+
+          const now = Date.now();
+          stamps = [...stamps, now].filter((t) => now - t < 10000);
+          const first = stamps[0];
+          const span = first === undefined ? 0 : now - first;
+          setFps(
+            stamps.length > 1 && span > 0
+              ? ((stamps.length - 1) / span) * 1000
+              : 0,
+          );
+        }
+      } catch {
+        if (!cancelled) {
           setConnected(false);
           setFps(0);
         }
-        // Polling fallback: if no Realtime notification for 3s, fetch directly
-        if (current === null || now - current > 3000) {
-          const ts = Date.now();
-          setSrc(roomFrameUrl(room, ts));
+      } finally {
+        if (!cancelled) {
+          timer = window.setTimeout(tick, POLL_INTERVAL_MS);
         }
-        return current;
-      });
-    }, 1000);
+      }
+    }
 
-    return () => window.clearInterval(interval);
+    void tick();
+
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [room]);
 
   return { connected, src, lastUpdate, fps };
