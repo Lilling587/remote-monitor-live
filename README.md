@@ -1,61 +1,67 @@
-# StagEye — Remote Screen Monitor
+# StagEye
 
-Live remote view of the FOH computer screen over the internet.
-Built for Vara Konserthus.
+Fjärrövervakning av FOH-datorns skärm över LAN och internet. Byggt för
+Vara Konserthus, för att starta, övervaka och stänga Smaart (SPL-mätning)
+på distans från valfri telefon eller webbläsare, utan installation.
 
----
+## Arkitektur
 
-## Viewer URLs
+Python-skript på FOH-datorn tar skärmbilder och gör två saker med varje bild:
 
-| Stage | URL |
-|---|---|
-| Stora Salen | https://stageye.spdproduktion.se/?room=stora-salen |
-| Blackbox | https://stageye.spdproduktion.se/?room=blackbox |
-| Host setup | https://stageye.spdproduktion.se/host |
+1. Håller den i minnet och serverar den från en lokal webbserver (LAN-läge)
+2. Laddar upp den till Supabase Storage (WAN-läge)
 
-Open any viewer URL in any browser — no install needed.
+LAN-läget kräver ingen internetuppkoppling alls. Misslyckas uppladdningen
+fortsätter LAN-läget opåverkat.
 
----
+Ingen Realtime används. Webbläsaren hämtar helt enkelt den senaste bilden
+med jämna mellanrum.
 
-## FOH Computer Setup
+## Rum
 
-### Install once
-1. Download Python from [python.org/downloads](https://python.org/downloads) — tick **Add Python to PATH**
-2. Open a terminal and run:
-3. Copy `stageye_host.py` and `stageye_start.bat` to the FOH computer
+Appen stödjer flera scener. Rummet sätts per dator i `stageye_host.py`.
 
-### Configure the script
-Open `stageye_host.py` and set the room at the top:
-```python
-ROOM = "stora-salen"   # or "blackbox"
-```
+| Rum           | LAN                     | WAN                                                |
+| ------------- | ----------------------- | -------------------------------------------------- |
+| `stora-salen` | `http://<FOH-IP>:8080/` | https://stageye.spdproduktion.se/?room=stora-salen |
+| `blackbox`    | `http://<FOH-IP>:8080/` | https://stageye.spdproduktion.se/?room=blackbox    |
 
-### Run it
-Double-click `stageye_start.bat` — no terminal window appears.
+`src/lib/stageye.ts` innehåller `ROOM_NAMES`, `roomFrameUrl()` och
+`roomFrameObject()`. Viewern läser `?room=` via TanStack Routers
+`validateSearch`.
 
-### Autostart on boot
-1. Press `Win + R` → type `shell:startup` → press Enter
-2. Put a shortcut to `stageye_start.bat` in that folder
-3. The script now starts automatically every time Windows boots
+## Lagring
 
----
+Supabase Storage, publik bucket `screen-frames`, en fil per rum:
+`{room}/latest.jpg`. Skrivs över vid varje uppladdning.
 
-## How it works
----
+## Python-värd
 
-## Rooms
+`stageye_host.py` körs på FOH-datorn.
 
-Each stage has its own isolated stream. The room is set in the Python script
-and in the viewer URL. Adding a new stage: pick a slug (no spaces), add it to
-`ROOM_NAMES` in `src/lib/stageye.ts`, copy the script to the new FOH computer
-and set the ROOM variable.
+- Lokal fångst: 0.4 s intervall, JPEG-kvalitet 65
+- Molnuppladdning: 2 s intervall, JPEG-kvalitet 40, ren HTTPS PUT
+- Loggar till `stageye_host.log` bredvid skriptet
+- Mus- och tangentbordsstyrning via `pyautogui` (valfritt, `CONTROL_ENABLED`)
 
----
+Autostart via `stageye_start.bat`, som körs dolt med `pythonw` från Windows
+Startup-mappen. Batchfilen låser Python-versionen till 3.12, eftersom 3.14
+saknar wheels för `mss`.
 
-## Project
+Porten 8080 måste vara öppen för inkommande trafik i Windows-brandväggen:
 
-- App: [stageye.lovable.app](https://stageye.lovable.app)
-- Custom domain: [stageye.spdproduktion.se](https://stageye.spdproduktion.se)
-- Lovable project: [lovable.dev/projects/1206b096-4490-421e-8952-b7b107367894](https://lovable.dev/projects/1206b096-4490-421e-8952-b7b107367894)
-- Supabase project: `fxomeytrkhrzkpjkpfjt`
-- 
+    netsh advfirewall firewall add rule name="StagEye LAN" dir=in action=allow protocol=TCP localport=8080
+
+## Bandbredd
+
+Cirka 4,4 GB/månad vid ~20 gig, 3 h per gig — inom Supabase gratisnivå
+(5 GB/mån). LAN-läget belastar inte kvoten alls. Vid behov: höj
+`CLOUD_INTERVAL` eller flytta lagringen till Cloudflare R2.
+
+## Arbetssätt
+
+Alla kodändringar görs via GitHubs webbgränssnitt, inte via Lovable-chatten,
+för att spara Lovable-krediter. Lovable synkar automatiskt från GitHub.
+
+Kom ihåg: FOH-datorn har en egen kopia av `stageye_host.py`. Ändringar i
+repot måste laddas ner dit manuellt.
