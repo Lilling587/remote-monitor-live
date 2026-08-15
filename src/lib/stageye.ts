@@ -22,7 +22,7 @@ export function roomControlChannel(room: string): string {
 }
 
 /** Milliseconds without a frame notification before the host is considered offline. */
-export const HOST_TIMEOUT_MS = 5000;
+export const HOST_TIMEOUT_MS = 12000;
 
 /** Milliseconds since host_status.last_seen_at before the host counts as offline. */
 export const HOST_STALE_MS = 10000;
