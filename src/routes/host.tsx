@@ -51,7 +51,7 @@ function HostPage() {
               Capture setup for the front-of-house computer
             </p>
           </div>
-          <Link to="/" className="text-xs text-zinc-400 hover:text-accent">
+          <Link to="/" search={{ room: DEFAULT_ROOM }} className="text-xs text-zinc-400 hover:text-accent">
             Open viewer
           </Link>
         </header>
@@ -109,7 +109,7 @@ function HostPage() {
             <li>Install the dependencies with the command above.</li>
             <li>
               Download{" "}
-              
+              <a
                 href={SCRIPT_URL}
                 className="text-accent underline"
                 target="_blank"
