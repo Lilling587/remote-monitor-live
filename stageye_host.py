@@ -321,7 +321,7 @@ VIEWER_HTML = """<!doctype html>
       setTimeout(loadFrame, 250);
     };
     next.onerror = function () {
-      setStatus('stale', 'Fransluten');
+      setStatus('stale', 'Ej ansluten');
       setTimeout(loadFrame, 1500);
     };
     next.src = '/latest.jpg?t=' + Date.now();
@@ -342,7 +342,7 @@ VIEWER_HTML = """<!doctype html>
         setStatus(age < 4000 ? 'live' : 'stale', age < 4000 ? 'Live' : 'Ingen bild');
         if (!s.control) { controlBtn.style.display = 'none'; }
       })
-      .catch(function () { setStatus('stale', 'Fransluten'); });
+      .catch(function () { setStatus('stale', 'Ej ansluten'); });
   }
 
   setInterval(poll, 2000);
