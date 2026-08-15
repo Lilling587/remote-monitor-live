@@ -1,25 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-import { supabase } from "@/integrations/supabase/client";
 import { useFrameStream } from "@/hooks/useFrameStream";
-import { useHostStatus } from "@/hooks/useHostStatus";
-import { CONTROL_CHANNEL, formatClock, type ControlEvent } from "@/lib/stageye";
+import { DEFAULT_ROOM, formatClock } from "@/lib/stageye";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { room: string } => {
+    const room = search["room"];
+    return {
+      room: typeof room === "string" && room.length > 0 ? room : DEFAULT_ROOM,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Stageye - remote screen monitor" },
       {
         name: "description",
-        content:
-          "Live remote view of a computer screen, with optional mouse and keyboard control",
+        content: "Live remote view of a front-of-house computer screen",
       },
       { property: "og:title", content: "Stageye - remote screen monitor" },
       {
         property: "og:description",
-        content:
-          "Live remote view of a computer screen, with optional mouse and keyboard control",
+        content: "Live remote view of a front-of-house computer screen",
       },
     ],
   }),
@@ -27,14 +28,11 @@ export const Route = createFileRoute("/")({
 });
 
 function Viewer() {
-  const { connected: framesLive, src, lastUpdate, fps } = useFrameStream();
-  const { connected: hostReported } = useHostStatus();
-  const connected = framesLive || hostReported;
-  const [control, setControl] = useState(false);
+  const { room } = Route.useSearch();
+  const { connected, src, lastUpdate, fps } = useFrameStream(room);
+
   const [chromeVisible, setChromeVisible] = useState(true);
   const hideTimer = useRef<number | null>(null);
-  const controlChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const lastMove = useRef(0);
 
   const wake = useCallback(() => {
     setChromeVisible(true);
@@ -49,39 +47,6 @@ function Viewer() {
     };
   }, [wake]);
 
-  useEffect(() => {
-    if (!control) return;
-    const channel = supabase.channel(CONTROL_CHANNEL);
-    channel.subscribe();
-    controlChannel.current = channel;
-
-    return () => {
-      controlChannel.current = null;
-      supabase.removeChannel(channel);
-    };
-  }, [control]);
-
-  const send = useCallback((event: ControlEvent) => {
-    controlChannel.current?.send({ type: "broadcast", event: "control", payload: event });
-  }, []);
-
-  const normalize = (e: React.MouseEvent<HTMLImageElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    return {
-      x: Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
-      y: Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)),
-    };
-  };
-
-  useEffect(() => {
-    if (!control) return;
-    const onKey = (e: KeyboardEvent) => {
-      send({ type: "keydown", key: e.key });
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [control, send]);
-
   return (
     <main
       className="relative h-screen w-screen overflow-hidden bg-background"
@@ -93,29 +58,8 @@ function Viewer() {
           <img
             src={src}
             alt="Live capture of the front-of-house computer screen"
-            className={`max-h-full max-w-full object-contain ${control ? "cursor-crosshair" : ""}`}
+            className="max-h-full max-w-full object-contain"
             draggable={false}
-            tabIndex={control ? 0 : -1}
-            onMouseMove={(e) => {
-              if (!control) return;
-              const now = Date.now();
-              if (now - lastMove.current < 100) return;
-              lastMove.current = now;
-              const { x, y } = normalize(e);
-              send({ type: "mousemove", x, y });
-            }}
-            onMouseDown={(e) => {
-              if (!control) return;
-              e.preventDefault();
-              const { x, y } = normalize(e);
-              send({
-                type: "mouseclick",
-                x,
-                y,
-                button: (e.button === 1 ? 1 : e.button === 2 ? 2 : 0) as 0 | 1 | 2,
-              });
-            }}
-            onContextMenu={(e) => control && e.preventDefault()}
           />
         ) : null}
       </div>
@@ -132,7 +76,10 @@ function Viewer() {
         }`}
       >
         <div className="flex items-baseline gap-3">
-          <h1 className="text-sm font-semibold tracking-[0.2em] text-foreground">STAGEYE<span className="sr-only"> — Remote Screen Monitor</span></h1>
+          <h1 className="text-sm font-semibold tracking-[0.2em] text-foreground">
+            STAGEYE
+            <span className="sr-only"> — Remote Screen Monitor</span>
+          </h1>
           <Link
             to="/host"
             className="text-[11px] tracking-widest text-muted-foreground uppercase hover:text-accent"
@@ -154,18 +101,7 @@ function Viewer() {
           chromeVisible ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
-        <button
-          type="button"
-          onClick={() => setControl((v) => !v)}
-          aria-pressed={control}
-          className={`rounded border px-3 py-1 tracking-widest uppercase transition-colors ${
-            control
-              ? "border-accent bg-accent text-accent-foreground"
-              : "border-border text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          {control ? "Control" : "View only"}
-        </button>
+        <span className="tracking-widest uppercase">{room}</span>
         <div className="flex items-center gap-6">
           <span>~{fps.toFixed(fps >= 10 ? 0 : 1)} fps</span>
           <span>Updated {formatClock(lastUpdate)}</span>
