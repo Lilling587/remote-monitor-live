@@ -32,7 +32,7 @@ ROOM = "stora-salen"                 # "stora-salen" eller "blackbox"
 ROOM_LABEL = "Stora Salen"           # visas i viewern
 
 SUPABASE_URL = "https://fxomeytrkhrzkpjkpfjt.supabase.co"
-SUPABASE_KEY = "DIN_ANON_KEY_HAR"    # behall det varde som redan star i repot
+SUPABASE_KEY = "sb_publishable_q6INNOwUoe6f4kOMSPJ4XQ_miL4APfh"
 BUCKET = "screen-frames"
 
 LOCAL_PORT = 8080                    # porten LAN-viewern lyssnar pa
