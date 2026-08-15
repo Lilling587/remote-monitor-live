@@ -4,7 +4,7 @@ export const FRAME_CHANNEL = "frame-updates";
 export const CONTROL_CHANNEL = "control-events";
 
 /** Default room — used when no ?room= is in the URL. */
-export const DEFAULT_ROOM = "default";
+export const DEFAULT_ROOM = "stora-salen";
 
 /** Storage path for a room's latest frame. */
 export function roomFrameObject(room: string): string {
@@ -34,7 +34,7 @@ export const SUPABASE_ANON_KEY =
   (import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined) ??
   "";
 
-export const PIP_INSTALL = "pip install mss pillow supabase pyautogui";
+export const PIP_INSTALL = "pip install mss pillow requests pyautogui";
 
 export function frameUrl(timestamp: number): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${FRAME_BUCKET}/${FRAME_OBJECT}?t=${timestamp}`;
