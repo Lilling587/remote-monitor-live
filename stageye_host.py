@@ -14,7 +14,6 @@ import io
 import json
 import os
 import socket
-import sys
 import threading
 import time
 from datetime import datetime
@@ -36,7 +35,7 @@ SUPABASE_KEY = "sb_publishable_q6INNOwUoe6f4kOMSPJ4XQ_miL4APfh"
 BUCKET = "screen-frames"
 
 LOCAL_PORT = 8080                    # porten LAN-viewern lyssnar pa
-MONITOR = 1                          # 1 = primar skarm, 2 = andra skarmen osv.
+DEFAULT_MONITOR = 1                  # 1 = primar skarm, 2 = andra skarmen, 0 = alla
 
 LOCAL_INTERVAL = 0.4                 # sekunder mellan skarmbilder (LAN, gratis bandbredd)
 CLOUD_INTERVAL = 2.0                 # sekunder mellan uppladdningar till Supabase
@@ -56,9 +55,12 @@ _state_lock = threading.Lock()
 _latest_jpeg = None          # bytes — senaste lokala bilden
 _latest_seq = 0              # rakas upp for varje ny bild
 _screen_size = (0, 0)        # (bredd, hojd) i pixlar
+_screen_origin = (0, 0)      # (left, top) for vald skarm — behovs for musstyrning
+_monitor_index = DEFAULT_MONITOR
+_monitor_count = 0           # antal fysiska skarmar
 _last_upload_ok = None       # None = inte forsokt an, True/False efter forsta forsoket
-_last_upload_time = 0.0
 _started_at = time.time()
+_frame_stamp = 0.0           # nar senaste bilden togs
 
 
 def log(message):
@@ -88,13 +90,25 @@ def local_ip():
 # =====================================================================
 
 def capture_loop():
-    global _latest_jpeg, _latest_seq, _screen_size
+    global _latest_jpeg, _latest_seq, _screen_size, _screen_origin
+    global _monitor_count, _frame_stamp, _monitor_index
 
     with mss.mss() as sct:
-        monitor = sct.monitors[MONITOR]
+        with _state_lock:
+            _monitor_count = max(0, len(sct.monitors) - 1)
+            if _monitor_index >= len(sct.monitors):
+                _monitor_index = 1
+        log("hittade %s skarm(ar)" % _monitor_count)
+
         while True:
             start = time.time()
             try:
+                with _state_lock:
+                    index = _monitor_index
+                if index >= len(sct.monitors):
+                    index = 1
+
+                monitor = sct.monitors[index]
                 shot = sct.grab(monitor)
                 image = Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
 
@@ -105,6 +119,8 @@ def capture_loop():
                     _latest_jpeg = buffer.getvalue()
                     _latest_seq += 1
                     _screen_size = image.size
+                    _screen_origin = (monitor["left"], monitor["top"])
+                    _frame_stamp = time.time()
             except Exception as exc:
                 log("capture-fel: %s" % exc)
                 time.sleep(2)
@@ -118,7 +134,7 @@ def capture_loop():
 # =====================================================================
 
 def upload_loop():
-    global _last_upload_ok, _last_upload_time
+    global _last_upload_ok
 
     url = "%s/storage/v1/object/%s/%s/latest.jpg" % (SUPABASE_URL, BUCKET, ROOM)
     headers = {
@@ -141,7 +157,6 @@ def upload_loop():
             continue
 
         try:
-            # Komprimera om till molnkvalitet for att spara bandbredd
             image = Image.open(io.BytesIO(jpeg))
             buffer = io.BytesIO()
             image.save(buffer, format="JPEG", quality=CLOUD_QUALITY)
@@ -151,10 +166,8 @@ def upload_loop():
 
             with _state_lock:
                 if _last_upload_ok is not True and ok:
-                    log("uppladdning fungerar igen")
+                    log("uppladdning fungerar")
                 _last_upload_ok = ok
-                if ok:
-                    _last_upload_time = time.time()
 
             if not ok:
                 log("uppladdning nekad: HTTP %s %s" % (response.status_code, response.text[:200]))
@@ -166,7 +179,7 @@ def upload_loop():
 
 
 # =====================================================================
-#  Fjarrstyrning (valfritt)
+#  Fjarrstyrning
 # =====================================================================
 
 _pyautogui = None
@@ -185,15 +198,16 @@ def handle_control(payload):
 
     with _state_lock:
         width, height = _screen_size
-
-    if width == 0 or height == 0:
-        return False
+        left, top = _screen_origin
 
     action = payload.get("type")
+
     try:
         if action in ("click", "move", "dblclick", "rightclick"):
-            x = int(float(payload.get("x", 0)) * width)
-            y = int(float(payload.get("y", 0)) * height)
+            if width == 0 or height == 0:
+                return False
+            x = left + int(float(payload.get("x", 0)) * width)
+            y = top + int(float(payload.get("y", 0)) * height)
             _pyautogui.moveTo(x, y)
             if action == "click":
                 _pyautogui.click()
@@ -205,6 +219,11 @@ def handle_control(payload):
             _pyautogui.typewrite(str(payload.get("text", "")), interval=0.01)
         elif action == "key":
             _pyautogui.press(str(payload.get("key", "")))
+        elif action == "hotkey":
+            keys = payload.get("keys", [])
+            if not keys:
+                return False
+            _pyautogui.hotkey(*[str(k) for k in keys])
         elif action == "scroll":
             _pyautogui.scroll(int(payload.get("amount", 0)))
         else:
@@ -216,7 +235,7 @@ def handle_control(payload):
 
 
 # =====================================================================
-#  LAN-viewer (samma utseende som molnvyn)
+#  LAN-viewer
 # =====================================================================
 
 VIEWER_HTML = """<!doctype html>
@@ -263,23 +282,37 @@ VIEWER_HTML = """<!doctype html>
     border: 1px solid #1c1f26; border-radius: 12px; overflow: hidden;
     background: #000; box-shadow: 0 18px 50px rgba(0,0,0,.6);
   }
-  #screen { display: block; max-width: 100%; max-height: 78vh; width: auto; height: auto; }
+  #screen { display: block; max-width: 100%; max-height: 72vh; width: auto; height: auto; }
   .frame.control { cursor: crosshair; border-color: #2563eb; }
 
   footer {
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 10px 16px; border-top: 1px solid #1c1f26; background: #0b0d11;
     font-size: 11px; color: #6b7280;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
   footer b { color: #9aa3b2; font-weight: 600; }
+  .grow { flex: 1; }
+  .stat { margin-right: 6px; }
+
   .btn {
-    margin-left: auto; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    padding: 6px 12px; border-radius: 8px; cursor: pointer;
     border: 1px solid #1c1f26; background: #101317; color: #9aa3b2;
     font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
   }
   .btn.on { color: #93c5fd; border-color: #1e3a8a; background: #0c1220; }
+  .btn:disabled { opacity: .4; cursor: default; }
+
+  .keys {
+    display: none; gap: 8px; flex-wrap: wrap; align-items: center;
+    padding: 10px 16px; border-top: 1px solid #1c1f26; background: #0b0d11;
+  }
+  .keys.show { display: flex; }
+  .keys input {
+    flex: 1; min-width: 120px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid #1c1f26; background: #101317; color: #e7e9ee; font-size: 13px;
+  }
 </style>
 </head>
 <body>
@@ -296,11 +329,22 @@ VIEWER_HTML = """<!doctype html>
     </div>
   </main>
 
+  <div class="keys" id="keys">
+    <button class="btn" id="dblBtn">Dubbelklick</button>
+    <button class="btn" id="rightBtn">Högerklick</button>
+    <input id="textInput" placeholder="Skriv text…" autocomplete="off">
+    <button class="btn" id="sendBtn">Skicka</button>
+    <button class="btn" id="enterBtn">Enter</button>
+    <button class="btn" id="escBtn">Esc</button>
+    <button class="btn" id="winBtn">Win</button>
+  </div>
+
   <footer>
-    <span><b id="fps">0.0</b> fps</span>
-    <span><b id="age">–</b> ms</span>
-    <span><b id="res">–</b></span>
-    <span><b>LAN</b></span>
+    <span class="stat"><b id="fps">0.0</b> fps</span>
+    <span class="stat"><b id="age">–</b> ms</span>
+    <span class="stat"><b id="res">–</b></span>
+    <span class="grow"></span>
+    <span id="screens"></span>
     <button class="btn" id="controlBtn">Styrning av</button>
   </footer>
 
@@ -310,8 +354,23 @@ VIEWER_HTML = """<!doctype html>
   var statusEl = document.getElementById('status');
   var statusText = document.getElementById('statusText');
   var controlBtn = document.getElementById('controlBtn');
+  var screensEl = document.getElementById('screens');
+  var keysEl = document.getElementById('keys');
+  var textInput = document.getElementById('textInput');
+
   var controlOn = false;
-  var lastSeq = -1, frames = 0, fpsWindow = Date.now();
+  var controlAvailable = false;
+  var nextClickIsDouble = false;
+  var nextClickIsRight = false;
+  var frames = 0, fpsWindow = Date.now();
+
+  function post(path, body) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }
 
   function loadFrame() {
     var next = new Image();
@@ -332,6 +391,28 @@ VIEWER_HTML = """<!doctype html>
     statusText.textContent = text;
   }
 
+  function renderScreens(count, current) {
+    if (screensEl.dataset.count === String(count) &&
+        screensEl.dataset.current === String(current)) return;
+    screensEl.dataset.count = count;
+    screensEl.dataset.current = current;
+    screensEl.innerHTML = '';
+    if (count < 2) return;
+
+    for (var i = 1; i <= count; i++) {
+      (function (index) {
+        var button = document.createElement('button');
+        button.className = 'btn' + (index === current ? ' on' : '');
+        button.style.marginRight = '6px';
+        button.textContent = 'Skärm ' + index;
+        button.onclick = function () {
+          post('/monitor', { index: index }).then(poll);
+        };
+        screensEl.appendChild(button);
+      })(i);
+    }
+  }
+
   function poll() {
     fetch('/status', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
@@ -340,7 +421,9 @@ VIEWER_HTML = """<!doctype html>
         document.getElementById('age').textContent = age;
         document.getElementById('res').textContent = s.width + '×' + s.height;
         setStatus(age < 4000 ? 'live' : 'stale', age < 4000 ? 'Live' : 'Ingen bild');
-        if (!s.control) { controlBtn.style.display = 'none'; }
+        renderScreens(s.monitors, s.monitor);
+        controlAvailable = s.control;
+        controlBtn.style.display = s.control ? '' : 'none';
       })
       .catch(function () { setStatus('stale', 'Ej ansluten'); });
   }
@@ -356,21 +439,57 @@ VIEWER_HTML = """<!doctype html>
     controlOn = !controlOn;
     controlBtn.classList.toggle('on', controlOn);
     frame.classList.toggle('control', controlOn);
-    controlBtn.textContent = controlOn ? 'Styrning pa' : 'Styrning av';
+    keysEl.classList.toggle('show', controlOn);
+    controlBtn.textContent = controlOn ? 'Styrning på' : 'Styrning av';
   };
 
   img.onclick = function (event) {
     if (!controlOn) return;
     var box = img.getBoundingClientRect();
-    fetch('/control', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'click',
-        x: (event.clientX - box.left) / box.width,
-        y: (event.clientY - box.top) / box.height
-      })
+    var type = nextClickIsDouble ? 'dblclick' : (nextClickIsRight ? 'rightclick' : 'click');
+    nextClickIsDouble = false;
+    nextClickIsRight = false;
+    document.getElementById('dblBtn').classList.remove('on');
+    document.getElementById('rightBtn').classList.remove('on');
+    post('/control', {
+      type: type,
+      x: (event.clientX - box.left) / box.width,
+      y: (event.clientY - box.top) / box.height
     });
+  };
+
+  document.getElementById('dblBtn').onclick = function () {
+    nextClickIsDouble = !nextClickIsDouble;
+    nextClickIsRight = false;
+    this.classList.toggle('on', nextClickIsDouble);
+    document.getElementById('rightBtn').classList.remove('on');
+  };
+
+  document.getElementById('rightBtn').onclick = function () {
+    nextClickIsRight = !nextClickIsRight;
+    nextClickIsDouble = false;
+    this.classList.toggle('on', nextClickIsRight);
+    document.getElementById('dblBtn').classList.remove('on');
+  };
+
+  document.getElementById('sendBtn').onclick = function () {
+    if (!textInput.value) return;
+    post('/control', { type: 'type', text: textInput.value });
+    textInput.value = '';
+  };
+
+  textInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') { document.getElementById('sendBtn').click(); }
+  });
+
+  document.getElementById('enterBtn').onclick = function () {
+    post('/control', { type: 'key', key: 'enter' });
+  };
+  document.getElementById('escBtn').onclick = function () {
+    post('/control', { type: 'key', key: 'esc' });
+  };
+  document.getElementById('winBtn').onclick = function () {
+    post('/control', { type: 'key', key: 'win' });
   };
 
   loadFrame();
@@ -387,16 +506,22 @@ class StagEyeHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # tyst — pythonw har ingen konsol
 
-    def _send(self, code, content_type, body, extra_headers=None):
+    def _send(self, code, content_type, body):
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Access-Control-Allow-Origin", "*")
-        for key, value in (extra_headers or {}).items():
-            self.send_header(key, value)
         self.end_headers()
         self.wfile.write(body)
+
+    def _read_json(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except Exception:
+            return {}
 
     def do_GET(self):
         path = self.path.split("?")[0]
@@ -418,7 +543,7 @@ class StagEyeHandler(BaseHTTPRequestHandler):
         if path == "/status":
             with _state_lock:
                 width, height = _screen_size
-                age = 0.0 if _latest_jpeg is None else max(0.0, time.time() - _last_frame_time())
+                age = 0.0 if _frame_stamp == 0.0 else max(0.0, time.time() - _frame_stamp)
                 payload = {
                     "room": ROOM,
                     "label": ROOM_LABEL,
@@ -429,6 +554,8 @@ class StagEyeHandler(BaseHTTPRequestHandler):
                     "uptime": time.time() - _started_at,
                     "cloud_ok": _last_upload_ok,
                     "control": _pyautogui is not None,
+                    "monitor": _monitor_index,
+                    "monitors": _monitor_count,
                 }
             self._send(200, "application/json", json.dumps(payload).encode("utf-8"))
             return
@@ -436,39 +563,37 @@ class StagEyeHandler(BaseHTTPRequestHandler):
         self._send(404, "text/plain", b"not found")
 
     def do_POST(self):
-        if self.path.split("?")[0] != "/control":
-            self._send(404, "text/plain", b"not found")
+        global _monitor_index
+        path = self.path.split("?")[0]
+
+        if path == "/control":
+            ok = handle_control(self._read_json())
+            self._send(200 if ok else 400, "application/json",
+                       json.dumps({"ok": ok}).encode("utf-8"))
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length) if length else b"{}"
-        try:
-            payload = json.loads(raw.decode("utf-8"))
-        except Exception:
-            payload = {}
+        if path == "/monitor":
+            payload = self._read_json()
+            try:
+                index = int(payload.get("index", DEFAULT_MONITOR))
+            except Exception:
+                index = DEFAULT_MONITOR
 
-        ok = handle_control(payload)
-        self._send(200 if ok else 400, "application/json",
-                   json.dumps({"ok": ok}).encode("utf-8"))
+            with _state_lock:
+                count = _monitor_count
+                if 0 <= index <= count:
+                    _monitor_index = index
+                    ok = True
+                else:
+                    ok = False
 
+            if ok:
+                log("bytte till skarm %s" % index)
+            self._send(200 if ok else 400, "application/json",
+                       json.dumps({"ok": ok, "monitor": index}).encode("utf-8"))
+            return
 
-_frame_stamp = [0.0]
-
-
-def _last_frame_time():
-    return _frame_stamp[0]
-
-
-def _stamp_watcher():
-    """Uppdaterar tidsstampeln varje gang en ny bild dyker upp."""
-    last = -1
-    while True:
-        with _state_lock:
-            seq = _latest_seq
-        if seq != last:
-            last = seq
-            _frame_stamp[0] = time.time()
-        time.sleep(0.1)
+        self._send(404, "text/plain", b"not found")
 
 
 # =====================================================================
@@ -479,7 +604,6 @@ def main():
     log("StagEye startar — rum=%s port=%s" % (ROOM, LOCAL_PORT))
 
     threading.Thread(target=capture_loop, daemon=True).start()
-    threading.Thread(target=_stamp_watcher, daemon=True).start()
     threading.Thread(target=upload_loop, daemon=True).start()
 
     server = ThreadingHTTPServer(("0.0.0.0", LOCAL_PORT), StagEyeHandler)
