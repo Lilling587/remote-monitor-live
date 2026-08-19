@@ -215,17 +215,6 @@ def handle_control(payload):
                 _pyautogui.doubleClick()
             elif action == "rightclick":
                 _pyautogui.click(button="right")
-                elif action == "drag":
-            if width == 0 or height == 0:
-                return False
-            x1 = left + int(float(payload.get("x1", 0)) * width)
-            y1 = top + int(float(payload.get("y1", 0)) * height)
-            x2 = left + int(float(payload.get("x2", 0)) * width)
-            y2 = top + int(float(payload.get("y2", 0)) * height)
-            _pyautogui.moveTo(x1, y1)
-            _pyautogui.mouseDown()
-            _pyautogui.moveTo(x2, y2, duration=0.25)
-            _pyautogui.mouseUp()
         elif action == "type":
             _pyautogui.typewrite(str(payload.get("text", "")), interval=0.01)
         elif action == "key":
@@ -454,7 +443,7 @@ VIEWER_HTML = """<!doctype html>
     controlBtn.textContent = controlOn ? 'Styrning på' : 'Styrning av';
   };
 
-    function sendTap(clientX, clientY) {
+  img.onclick = function (event) {
     if (!controlOn) return;
     var box = img.getBoundingClientRect();
     var type = nextClickIsDouble ? 'dblclick' : (nextClickIsRight ? 'rightclick' : 'click');
@@ -464,50 +453,10 @@ VIEWER_HTML = """<!doctype html>
     document.getElementById('rightBtn').classList.remove('on');
     post('/control', {
       type: type,
-      x: (clientX - box.left) / box.width,
-      y: (clientY - box.top) / box.height
+      x: (event.clientX - box.left) / box.width,
+      y: (event.clientY - box.top) / box.height
     });
-  }
-
-  img.addEventListener('click', function (event) {
-    sendTap(event.clientX, event.clientY);
-  });
-
-   var touchStart = null;
-
-  img.addEventListener('touchstart', function (event) {
-    if (!controlOn) return;
-    var touch = event.changedTouches[0];
-    if (!touch) return;
-    touchStart = { x: touch.clientX, y: touch.clientY };
-  }, { passive: true });
-
-  img.addEventListener('touchend', function (event) {
-    if (!controlOn) return;
-    var touch = event.changedTouches[0];
-    if (!touch) return;
-    event.preventDefault();
-
-    var start = touchStart;
-    touchStart = null;
-
-    if (start) {
-      var moved = Math.abs(touch.clientX - start.x) + Math.abs(touch.clientY - start.y);
-      if (moved > 20) {
-        var box = img.getBoundingClientRect();
-        post('/control', {
-          type: 'drag',
-          x1: (start.x - box.left) / box.width,
-          y1: (start.y - box.top) / box.height,
-          x2: (touch.clientX - box.left) / box.width,
-          y2: (touch.clientY - box.top) / box.height
-        });
-        return;
-      }
-    }
-
-    sendTap(touch.clientX, touch.clientY);
-  }, { passive: false });
+  };
 
   document.getElementById('dblBtn').onclick = function () {
     nextClickIsDouble = !nextClickIsDouble;
