@@ -35,7 +35,7 @@ SUPABASE_KEY = "sb_publishable_q6INNOwUoe6f4kOMSPJ4XQ_miL4APfh"
 BUCKET = "screen-frames"
 
 LOCAL_PORT = 8080                    # porten LAN-viewern lyssnar pa
-DEFAULT_MONITOR = 1                  # 1 = primar skarm, 2 = andra skarmen, 0 = alla
+DEFAULT_MONITOR = 2                  # 1 = primar skarm, 2 = andra skarmen, 0 = alla
 
 LOCAL_INTERVAL = 0.4                 # sekunder mellan skarmbilder (LAN, gratis bandbredd)
 CLOUD_INTERVAL = 2.0                 # sekunder mellan uppladdningar till Supabase
