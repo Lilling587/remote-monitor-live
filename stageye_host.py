@@ -443,7 +443,7 @@ VIEWER_HTML = """<!doctype html>
     controlBtn.textContent = controlOn ? 'Styrning på' : 'Styrning av';
   };
 
-  img.onclick = function (event) {
+    function sendTap(clientX, clientY) {
     if (!controlOn) return;
     var box = img.getBoundingClientRect();
     var type = nextClickIsDouble ? 'dblclick' : (nextClickIsRight ? 'rightclick' : 'click');
@@ -453,10 +453,22 @@ VIEWER_HTML = """<!doctype html>
     document.getElementById('rightBtn').classList.remove('on');
     post('/control', {
       type: type,
-      x: (event.clientX - box.left) / box.width,
-      y: (event.clientY - box.top) / box.height
+      x: (clientX - box.left) / box.width,
+      y: (clientY - box.top) / box.height
     });
-  };
+  }
+
+  img.addEventListener('click', function (event) {
+    sendTap(event.clientX, event.clientY);
+  });
+
+  img.addEventListener('touchend', function (event) {
+    if (!controlOn) return;
+    var touch = event.changedTouches[0];
+    if (!touch) return;
+    event.preventDefault();
+    sendTap(touch.clientX, touch.clientY);
+  }, { passive: false });
 
   document.getElementById('dblBtn').onclick = function () {
     nextClickIsDouble = !nextClickIsDouble;
